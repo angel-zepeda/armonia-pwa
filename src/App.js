@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import Autosuggest from 'react-autosuggest';
+import './autcomplete.css';
 
 const App = () => {
-
+  const [suggestions, setSuggestions] = useState([]);
+  const [value, setValue] = useState('')
   const [venta, setVenta] = useState({
     fecha_final: '',
     zona: '',
@@ -16,6 +19,7 @@ const App = () => {
     importe: '',
     cliente: '',
     calle: '',
+    colonia: '',
     lado: '',
     frente: '',
     entre_calles: '',
@@ -27,21 +31,36 @@ const App = () => {
     membresia: '',
     nombre_productos: '',
   });
+  let telefono = 'S/T';
+  let colonia = 'S/C';
+  // const [vendedores, setVendedores] = useState([]);
+  // const [zonas, setZonas] = useState([]);
+  const [clientes, setClientes] = useState([]);
+  // const [productos, setProductos] = useState([]);
+  const escapeRegexCharacters = (str) => { return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+  const getSuggestions = (value) => {
+    const escapedValue = escapeRegexCharacters(value.trim());
+    if (escapedValue === '') return [];
+    const regex = new RegExp('^' + escapedValue, 'i');
+    return clientes.filter(cliente => regex.test(cliente.name));
+  }
+  const getSuggestionValue = (suggestion) => {
+    telefono = suggestion.telefono;
+    colonia = suggestion.colonia;
+    return suggestion.name;
+  };
+  const renderSuggestion = (suggestion) => { console.log(suggestion); return (<span>{suggestion.name}</span>); }
 
-  const [vendedores, setVendedores] = useState([
-    "angel",
-    "jesus",
-    "zepeda"
-  ]);
+
 
   useEffect(() => {
     const getVendedores = async () => {
       const response = await axios.get('http://armoniacorporal.com.mx/app/descargar_catalogos.php');
-      console.log(response);
+      setClientes(response.data.clientes);
     }
     getVendedores();
-
   }, [])
+
 
   const handleChange = e => setVenta({ ...venta, [e.target.name]: e.target.value });
 
@@ -51,18 +70,34 @@ const App = () => {
     console.log(localStorage.getItem('data'));
   }
 
-  const addDays = e => {
-    console.log(e.target.value)
-    setVenta({
-      ...venta,
-      fecha_enganche: e.target.value + 7
-    })
-  }
+  // const addDays = e => {
+  //   console.log(e.target.value)
+  //   setVenta({
+  //     ...venta,
+  //     fecha_enganche: e.target.value + 7
+  //   })
+  // }
 
   const sendData = e => {
     e.preventDefault();
     console.log("Sincronizar con base de datos");
   }
+
+  const onChange = (event, { newValue, method }) => {
+    setValue(newValue);
+  };
+
+  const onSuggestionsFetchRequested = ({ value }) => {
+
+    setSuggestions(getSuggestions(value));
+  };
+
+  const onSuggestionsClearRequested = () => {
+    console.log("CLICK", value, telefono);
+    setVenta({ ...venta, cliente: value, telefono: telefono, colonia: colonia })
+    setSuggestions([]);
+  };
+
 
   return (
     <div >
@@ -78,13 +113,26 @@ const App = () => {
           >
             <i style={{ fontSize: '2em', verticalAlign: 'middle' }} className="material-icons">sync</i>
           </button>
-
         </div>
       </nav>
       <div className="container p-4">
         <form
           onSubmit={handleSubmit}
-          id="form_edicion" autoComplete="off">
+          id="form_edicion" autoComplete="off"
+        >
+          <label>Cliente</label>
+          <Autosuggest
+            suggestions={suggestions}
+            onSuggestionsFetchRequested={onSuggestionsFetchRequested}
+            onSuggestionsClearRequested={onSuggestionsClearRequested}
+            getSuggestionValue={getSuggestionValue}
+            renderSuggestion={renderSuggestion}
+            inputProps={{
+              placeholder: "Escribe el nombre del cliente",
+              value,
+              onChange: onChange
+            }}
+          />
           <div className="form-group mb-2">
             <label htmlFor="zona">Zona:</label>
             <select
@@ -101,11 +149,7 @@ const App = () => {
             <label htmlFor="id_vendedores">Vendedor:</label>
             <select onChange={handleChange} className="form-control" name="id_vendedores">
               <option>Elige...</option>
-              {
-                vendedores.map(vendedor => (
-                  <option value={vendedor} key={vendedor}>{vendedor}</option>
-                ))
-              }
+
             </select>
           </div>
 
@@ -121,16 +165,27 @@ const App = () => {
 
           <div className="form-group">
             <label htmlFor="cliente">Cliente:</label>
-            <input onChange={handleChange} className="form-control" name="cliente" id="cliente" />
+            <input className="form-control" name="cliente" id="cliente" />
           </div>
+
+          <div className="form-group">
+            <label htmlFor="ubicacion">Ubicación:</label>
+            <input onChange={handleChange} className="form-control " name="ubicacion" id="ubicacion" />
+          </div>
+
           <div className="form-group">
             <label htmlFor="telefono">Teléfono:</label>
-            <input onChange={handleChange} className="form-control " name="telefono" id="telefono" />
+            <input value={venta.telefono} onChange={handleChange} className="form-control " name="telefono" id="telefono" />
           </div>
 
           <div className="form-group">
             <label htmlFor="membresia">Membresía:</label>
             <input onChange={handleChange} className="form-control " name="membresia" id="membresia" />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="calle">Colonia:</label>
+            <input value={venta.colonia} onChange={handleChange} className="form-control " name="colonia" id="colonia" />
           </div>
 
           <div className="form-group">
@@ -157,14 +212,7 @@ const App = () => {
             <label htmlFor="fachada">Fachada:</label>
             <input onChange={handleChange} className="form-control " name="fachada" id="fachada" />
           </div>
-
-          <div className="form-group">
-            <label htmlFor="ubicacion">Ubicación:</label>
-            <input onChange={handleChange} className="form-control " name="ubicacion" id="ubicacion" />
-          </div>
-
           <hr />
-
           <div className="form-group">
             <label htmlFor="nombre_productos">Producto:</label>
             <select onChange={handleChange} className="form-control" id="nombre_productos" name="nombre_productos" >
@@ -190,7 +238,8 @@ const App = () => {
           </div>
           <div className="form-group">
             <label htmlFor="dia_cobranza">Día de Cobro:</label>
-            <select onChange={handleChange, addDays} className="form-control" name="dia_cobranza" id="dia_cobranza" required>
+
+            <select onChange={handleChange} className="form-control" name="dia_cobranza" id="dia_cobranza" required>
               <option value="" >Elige...</option>
               <option value="LUNES">LUNES</option>
               <option value="MARTES">MARTES</option>
@@ -222,7 +271,6 @@ const App = () => {
               <option >MENSUAL</option>
             </select>
           </div>
-
           <button
             type="submit"
             className="btn btn-primary col-12 mt-2"
