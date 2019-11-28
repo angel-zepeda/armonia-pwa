@@ -5,12 +5,14 @@ import './autcomplete.css';
 
 const App = () => {
   const [suggestions, setSuggestions] = useState([]);
+  const [files, setFiles] = useState([]);
   const [value, setValue] = useState('');
   const [ventas, setVentas] = useState([]);
   const [venta, setVenta] = useState({
     fecha_final: '',
     zona: '',
     id_ventas: '',
+    observaciones: '',
     id_vendedores: '',
     fecha_ventas: new Date().toJSON().slice(0, 10),
     dia_cobranza: '',
@@ -31,12 +33,15 @@ const App = () => {
     enganche: '',
     membresia: '',
     nombre_productos: '',
+    file1: '',
+    file2: ''
   });
   let telefono = 'S/T';
   let colonia = 'S/C';
-  const [vendedores, setVendedores] = useState([]);
+  let observaciones = '';
+  // const [vendedores, setVendedores] = useState([]);
   // const [zonas, setZonas] = useState([]);
-  const [clientes, setClientes] = useState([]);
+  // const [clientes, setClientes] = useState([]);
   // const [productos, setProductos] = useState([]);
   const escapeRegexCharacters = (str) => { return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
   const getSuggestions = (value) => {
@@ -48,6 +53,7 @@ const App = () => {
   const getSuggestionValue = (suggestion) => {
     telefono = suggestion.telefono;
     colonia = suggestion.colonia;
+    observaciones = suggestion.observaciones;
     return suggestion.name;
   };
   const renderSuggestion = (suggestion) => { return (<span>{suggestion.name}</span>); }
@@ -55,19 +61,41 @@ const App = () => {
   useEffect(() => {
     const getVendedores = async () => {
       const response = await axios.get('https://armoniacorporal.com.mx/app/descargar_catalogos.php');
-      setVendedores(response.data.vendedores);
-      setClientes(response.data.clientes);
+      // setVendedores(response.data.vendedores);
+      // setClientes(response.data.clientes);
       localStorage.setItem('vendedores', JSON.stringify(response.data.vendedores));
       localStorage.setItem('clientes', JSON.stringify(response.data.clientes));
+      localStorage.setItem('productos', JSON.stringify(response.data.productos));
     }
     getVendedores();
   }, [])
 
 
-  const handleChange = e => setVenta({ ...venta, [e.target.name]: e.target.value });
+  const handleChange = e => {
+    if (e.target.files) {
+      setVenta({ ...venta, [e.target.name]: e.target.files[0].name });
+      setFiles([...files, e.target.files[0]]);
+    } else { setVenta({ ...venta, [e.target.name]: e.target.value }); }
+  }
+
+  const sendFiles = async () => {
+
+    for (let i = 0; i <= files.length; i++) {
+      let reader = new FileReader();
+      reader.onloadend = function () {
+        var b64 = reader.result.replace(/^data:.+;base64,/, '');
+        console.log(b64);
+      };
+
+      reader.readAsDataURL(files[i]);
+    }
+
+
+  }
 
   const handleSubmit = e => {
     e.preventDefault();
+    sendFiles();
     setVentas([...ventas, venta]);
     setVenta({
       fecha_final: '',
@@ -92,26 +120,17 @@ const App = () => {
       telefono: '',
       descuento: '',
       enganche: '',
+      observaciones: '',
       membresia: '',
       nombre_productos: '',
     });
-    alert("Se guardó correctamente")
-
-
-
+    alert("Se guardó correctamente");
   }
+
   localStorage.setItem('data', JSON.stringify(ventas));
-  // const addDays = e => {
-  //   console.log(e.target.value)
-  //   setVenta({
-  //     ...venta,
-  //     fecha_enganche: e.target.value + 7
-  //   })
-  // }
 
   const sendData = async () => {
-    const response = await axios.post('https://armoniacorporal.com.mx/app/subir_ventas.php', JSON.parse(localStorage.getItem('data')));
-    console.log(response);
+    await axios.post('https://armoniacorporal.com.mx/app/subir_ventas.php', JSON.parse(localStorage.getItem('data')));
   }
 
   const onChange = (event, { newValue, method }) => {
@@ -125,7 +144,7 @@ const App = () => {
 
   const onSuggestionsClearRequested = () => {
     // console.log("CLICK", value, telefono);
-    setVenta({ ...venta, cliente: value, telefono: telefono, colonia: colonia })
+    setVenta({ ...venta, cliente: value, telefono: telefono, colonia: colonia, observaciones: observaciones })
     setSuggestions([]);
   };
 
@@ -137,6 +156,7 @@ const App = () => {
           <img src="icono.jpeg" width="30" height="30" className="d-inline-block align-top rounded text-white" alt="" />
         </div>
         <div className="float-right">
+
           <button
             type="submit"
             onClick={sendData}
@@ -164,6 +184,11 @@ const App = () => {
               onChange: onChange
             }}
           />
+          <div className="form-group">
+            <label htmlFor="observaciones">Observaciones:</label>
+            <textarea value={venta.observaciones} onChange={handleChange} className="form-control" name="observaciones" id="observaciones" />
+          </div>
+
           <div className="form-group mb-2">
             <label htmlFor="zona">Zona:</label>
             <select
@@ -251,10 +276,12 @@ const App = () => {
           <div className="form-group">
             <label htmlFor="nombre_productos">Producto:</label>
             <select onChange={handleChange} className="form-control" id="nombre_productos" name="nombre_productos" >
-              <option>COLAGENO</option>
-              <option>MANGOSTAN</option>
-              <option>TICTIL</option>
-              <option>ALCACHOFA</option>
+              <option>Elige...</option>
+              {
+                JSON.parse(localStorage.getItem('productos')) === null ?
+                  alert("Conectate a internet para descargar el catalogo de productos")
+                  : JSON.parse(localStorage.getItem('productos')).map(producto => <option value={producto} key={producto}>{producto}</option>)
+              }
             </select>
           </div>
           <div className="form-group">
@@ -305,6 +332,15 @@ const App = () => {
               <option >QUINCENAL</option>
               <option >MENSUAL</option>
             </select>
+          </div>
+          <div className="custom-file">
+            <input onChange={handleChange} type="file" name="file1" className="custom-file-input" />
+            <label className="custom-file-label" htmlFor="inputGroupFile02">Elige un archivo</label>
+          </div>
+          <hr />
+          <div className="custom-file">
+            <input onChange={handleChange} type="file" name="file2" className="custom-file-input" />
+            <label className="custom-file-label" htmlFor="inputGroupFile02">Elige un archivo</label>
           </div>
           <button
             type="submit"
